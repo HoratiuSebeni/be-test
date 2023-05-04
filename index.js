@@ -48,9 +48,18 @@ app.post('/users/login/:id', async (req, res) => {
 });
 
 // Gets all users
+// Returns also the company data linked to the user
+// To increase the security JWT is not returned
 app.get('/users', authenticate, async (_, res) => {
     try {
-        const allUsers = await prisma.user.findMany();
+        const allUsers = await prisma.user.findMany({
+            include: {
+                companies: true,
+            },
+        });
+        for (user of allUsers) {
+            delete user['jwt'];
+          }
         res.json(allUsers);
     } catch (error) {
         console.error(error);
@@ -59,8 +68,19 @@ app.get('/users', authenticate, async (_, res) => {
 });
 
 // Invalidate JWT
+// JWT is invalidated when it is deleted from the database
 app.post('/users/invalidateToken/:id', authenticate, async (req, res) => {
-    // TODO: Implement
+    const { id } = req.params;
+    try { 
+        await prisma.user.update({
+            where: { id : parseInt(id) },
+            data: { jwt: null },
+        });
+        res.json({ message: 'The user token has been invalidated.' });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: 'Failed to invalidate user token.' });
+    }
 });
 
 app.listen(3000, () => {
